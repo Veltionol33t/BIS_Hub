@@ -1,0 +1,3 @@
+import { NextRequest, NextResponse } from 'next/server';
+export function middleware(req:NextRequest){const p=req.nextUrl.pathname;const publicPath=p==='/login'||p==='/api/login'||p.startsWith('/_next')||p==='/favicon.ico';if(publicPath)return NextResponse.next();if(!req.cookies.get('admin_hub_session'))return NextResponse.redirect(new URL('/login',req.url));return NextResponse.next();}
+export const config={matcher:['/((?!_next/static|_next/image).*)']};
