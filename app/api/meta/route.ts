@@ -1,0 +1,3 @@
+import { NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase';
+export async function GET(){try{const s=supabaseServer();const [u,a,c]=await Promise.all([s.from('business_units').select('id,name,code,kind').eq('is_active',true).order('name'),s.from('accounts').select('id,name,type,business_unit_id,is_personal,opening_balance,currency').order('name'),s.from('categories').select('id,name,type').eq('is_active',true).order('name')]);if(u.error)throw u.error;if(a.error)throw a.error;if(c.error)throw c.error;return NextResponse.json({businessUnits:u.data,accounts:a.data,categories:c.data});}catch(e){return NextResponse.json({error:String(e)},{status:500})}}
