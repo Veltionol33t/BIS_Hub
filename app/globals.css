@@ -105,3 +105,6 @@ button,input,select{font:inherit}.shell{display:flex;min-height:100vh}.sidebar{w
   .panel{margin-bottom:14px}
   .bars{padding:14px;min-height:150px}
 }
+
+.company-section{cursor:default}.company-section:hover{transform:none}.company-section .company-card-head>div{display:grid;gap:3px}.company-section .company-card-head{align-items:center}.company-recent{border-top:1px solid var(--line);padding-top:11px;margin-top:4px}.company-recent-title{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:750;color:#7a8492;margin-bottom:7px}.company-tx{display:grid;grid-template-columns:76px 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f0f2f5;font-size:11px}.company-tx:last-child{border-bottom:0}.company-tx span:first-child{color:var(--muted)}.company-tx span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.income-text{color:#197044}.expense-text{color:#a43b3b}.company-none{font-size:11px;color:var(--muted);padding:7px 0}
+@media(max-width:600px){.company-section .company-card-head{display:flex}.company-section .company-card-head b{display:block;margin-top:3px}.company-section .company-card-head .btn{width:auto;height:auto}.company-tx{grid-template-columns:62px 1fr auto;font-size:10px}.company-metrics strong{font-size:12px}}
