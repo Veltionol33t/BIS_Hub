@@ -15,6 +15,7 @@ export default function Hub(){
  const [bus,setBus]=useState<BU[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[categories,setCategories]=useState<Cat[]>([]);
  const [workspace,setWorkspace]=useState('whole'),[tx,setTx]=useState<Tx[]>([]),[summary,setSummary]=useState<any>({}),[balances,setBalances]=useState<any[]>([]);
  const [q,setQ]=useState(''),[type,setType]=useState(''),[month,setMonth]=useState(''),[category,setCategory]=useState(''),[account,setAccount]=useState('');
+ const [companySummaries,setCompanySummaries]=useState<Record<string,any>>({});
  const [modal,setModal]=useState<'transaction'|'account'|'category'|null>(null),[editing,setEditing]=useState<string|null>(null);
  const [form,setForm]=useState<any>(empty),[metaForm,setMetaForm]=useState({name:'',type:'expense',description:'',business_unit_id:'',is_personal:false,opening_balance:'0',currency:'PHP'});
  const [error,setError]=useState(''),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true);
@@ -31,6 +32,10 @@ export default function Hub(){
        fetch(`/api/summary?${summaryQuery}`).then(r=>r.json()),
        fetch('/api/balances').then(r=>r.json())
      ]);
+     if(workspace==='whole' && companyButtons.length){
+       const pairs=await Promise.all(companyButtons.map(async c=>[c.id,await fetch(`/api/summary?business_unit_id=${c.id}`).then(r=>r.json())] as const));
+       setCompanySummaries(Object.fromEntries(pairs));
+     }else setCompanySummaries({});
      setTx(Array.isArray(t)?t:[]);setSummary(s||{});setBalances(Array.isArray(b)?b:[]);
    }catch{setError('Could not load data. Check Supabase/Vercel settings.')}
    finally{setLoading(false)}
@@ -40,6 +45,8 @@ export default function Hub(){
  const selected=bus.find(x=>x.id===workspace);
  const title=workspace==='whole'?'Whole / All Companies':workspace==='personal'?'Personal / Other':selected?.name||'Company Admin Hub';
  const companyButtons=bus.filter(x=>x.kind==='company');
+ const exportRows=(rows:Tx[])=>rows.map(x=>({Date:x.transaction_date,Type:x.type,'Customer / Supplier':x.counterparty||'',Category:x.categories?.name||'',Account:x.accounts?.name||'',Company:bus.find(b=>b.id===x.business_unit_id)?.name||'Unassigned',Reference:x.reference_number||'',VAT:x.tax_amount||0,Amount:x.amount||0,Description:x.description||'',Project:x.project_name||'',Personal:x.is_personal?'Yes':'No'}));
+ const downloadCsv=(name:string,rows:Tx[])=>{const data=exportRows(rows);if(!data.length){alert('Nothing to export.');return}const keys=Object.keys(data[0]);const esc=(v:any)=>`"${String(v??'').replace(/"/g,'""')}"`;const csv=[keys.join(','),...data.map(r=>keys.map(k=>esc((r as any)[k])).join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)};
  const latestMonth=summary.monthly?.[0];
  const filtered=useMemo(()=>tx.filter(x=>(!type||x.type===type)&&(!month||x.transaction_date?.startsWith(month))&&(!category||x.category_id===category)&&(!account||x.account_id===account)),[tx,type,month,category,account]);
 
@@ -100,8 +107,9 @@ export default function Hub(){
 
    {page==='dashboard'&&<>
     <div className="section-kicker">Financial overview</div><div className="cards"><Card label="Income" value={summary.income} cls="positive"/><Card label="Expenses" value={summary.expenses} cls="negative"/><Card label="Net balance" value={summary.net}/><Card label="Net VAT" value={summary.net_vat}/><Card label="Transactions" value={summary.count}/></div>
+    {workspace==='whole'&&companyButtons.length>0&&<section className="company-strip"><div className="section-kicker">Company separation</div><div className="company-grid">{companyButtons.map(c=>{const x=companySummaries[c.id]||{};return <button className="company-card" key={c.id} onClick={()=>setWorkspace(c.id)}><div className="company-card-head"><span>{c.code||'COMPANY'}</span><b>{c.name}</b></div><div className="company-metrics"><div><small>Income</small><strong>{money(x.income)}</strong></div><div><small>Expenses</small><strong>{money(x.expenses)}</strong></div><div><small>Net VAT</small><strong>{money(x.net_vat)}</strong></div></div><span className="company-link">Open workspace →</span></button>})}</div></section>}
     <section className="panel">
-     <div className="panel-head"><div><div className="panel-title">Recent transactions</div><div className="sub">Latest activity for {title}</div></div><button className="btn" onClick={()=>setPage('transactions')}>View all</button></div>
+     <div className="panel-head"><div><div className="panel-title">Recent transactions</div><div className="sub">Latest activity for {title}</div></div><div className="head-actions"><button className="btn" onClick={()=>downloadCsv(`transactions-${workspace}.csv`,tx)}>Export CSV</button><button className="btn" onClick={()=>setPage('transactions')}>View all</button></div></div>
      <Table rows={tx.slice(0,10)} onEdit={openTx} onDelete={deleteTx}/>{!tx.length&&<div className="empty">No transactions yet.</div>}
     </section>
     <div className="dashboard-grid"><section className="panel"><div className="panel-head"><div><div className="panel-title">Monthly cash flow</div><div className="sub">Income vs expenses · latest months</div></div></div><MonthlyBars rows={(summary.monthly||[]).slice(0,6)}/></section><section className="panel"><div className="panel-head"><div><div className="panel-title">This month</div><div className="sub">Quick financial snapshot</div></div></div><div className="snapshot"><div><span>Income</span><b>{money(latestMonth?.income)}</b></div><div><span>Expenses</span><b>{money(latestMonth?.expenses)}</b></div><div><span>Net</span><b>{money((latestMonth?.income||0)-(latestMonth?.expenses||0))}</b></div><div><span>VAT</span><b>{money((latestMonth?.output_vat||0)-(latestMonth?.input_vat||0))}</b></div></div></section></div><section className="panel" style={{marginTop:18}}><div className="panel-head"><div><div className="panel-title">Monthly tally</div><div className="sub">Income, expenses and VAT by month</div></div></div><MonthlyTable rows={summary.monthly||[]}/></section>
@@ -114,12 +122,12 @@ export default function Hub(){
      <input className="btn" type="month" value={month} onChange={e=>setMonth(e.target.value)}/>
      <select className="btn" value={category} onChange={e=>setCategory(e.target.value)}><option value="">All categories</option>{categories.filter(c=>c.is_active&&(!type||c.type===type)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
      <select className="btn" value={account} onChange={e=>setAccount(e.target.value)}><option value="">All accounts</option>{accounts.filter(a=>a.is_active).map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select>
-     <button className="btn" onClick={()=>{setQ('');setType('');setMonth('');setCategory('');setAccount('')}}>Clear</button>
+     <button className="btn" onClick={()=>downloadCsv(`transactions-${workspace}.csv`,filtered)}>Export CSV</button><button className="btn" onClick={()=>{setQ('');setType('');setMonth('');setCategory('');setAccount('')}}>Clear</button>
     </div>
-    <section className="panel"><Table rows={filtered} onEdit={openTx} onDelete={deleteTx}/>{!filtered.length&&<div className="empty">No matching transactions.</div>}</section>
+    <section className="panel"><div className="panel-head"><div><div className="panel-title">Transaction register</div><div className="sub">{filtered.length} matching records</div></div><button className="btn" onClick={()=>downloadCsv(`transactions-${workspace}.csv`,filtered)}>Export CSV</button></div><Table rows={filtered} onEdit={openTx} onDelete={deleteTx}/>{!filtered.length&&<div className="empty">No matching transactions.</div>}</section>
    </>}
 
-   {page==='vat'&&<><div className="cards three"><Card label="Output VAT" value={summary.output_vat}/><Card label="Input VAT" value={summary.input_vat}/><Card label="Net VAT" value={summary.net_vat}/></div><section className="panel"><div className="panel-head"><div className="panel-title">VAT transactions · fixed 12%</div></div><Table rows={tx.filter(x=>x.tax_type==='vat')} onEdit={openTx} onDelete={deleteTx}/></section></>}
+   {page==='vat'&&<><div className="page-title-row"><div><div className="title">VAT / Tax</div><div className="sub">12% VAT summary and exportable VAT transactions.</div></div><button className="btn primary" onClick={()=>downloadCsv(`vat-${workspace}.csv`,tx.filter(x=>x.tax_type==='vat'))}>Export VAT CSV</button></div><div className="cards three"><Card label="Output VAT" value={summary.output_vat}/><Card label="Input VAT" value={summary.input_vat}/><Card label="Net VAT" value={summary.net_vat}/></div><section className="panel"><div className="panel-head"><div className="panel-title">VAT transactions · fixed 12%</div></div><Table rows={tx.filter(x=>x.tax_type==='vat')} onEdit={openTx} onDelete={deleteTx}/></section></>}
 
    {page==='accounts'&&<MetaPage title="Accounts" sub="Bank, cash, e-wallet and other payment sources." rows={accounts} kind="account" balances={balances} onNew={()=>{setEditing(null);setMetaForm({name:'',type:'bank',description:'',business_unit_id:workspace==='whole'?'':workspace,is_personal:workspace==='personal',opening_balance:'0',currency:'PHP'});setError('');setModal('account')}} onEdit={(r:any)=>{setEditing(r.id);setMetaForm({name:r.name,type:r.type,description:r.description||'',business_unit_id:r.business_unit_id||'',is_personal:!!r.is_personal,opening_balance:String(r.opening_balance||0),currency:r.currency||'PHP'});setError('');setModal('account')}} onDelete={deleteMeta}/>}
 
@@ -127,7 +135,7 @@ export default function Hub(){
 
    {page==='balances'&&<section className="panel"><div className="panel-head"><div><div className="panel-title">Account balances</div><div className="sub">Opening balance plus income minus expenses. Personal charges still reduce the real account balance.</div></div><button className="btn" onClick={()=>setPage('accounts')}>Manage accounts</button></div><div className="balance-grid">{balances.map(b=><div className="balance-card" key={b.id}><div className="label">{b.name}</div><div className="value">{money(Number(b.current_balance))}</div><div className="sub">{b.currency} · {b.is_personal?'Personal':'Company-linked'}</div></div>)}</div></section>}
 
-   {page==='reports'&&<section className="panel"><div className="panel-head"><div><div className="panel-title">Monthly tally · {title}</div><div className="sub">Switch Workspace above to view Bringing Industry Solution, Bethesher, Whole, or Personal / Other.</div></div></div><MonthlyTable rows={summary.monthly||[]}/></section>}
+   {page==='reports'&&<section className="panel"><div className="panel-head"><div><div className="panel-title">Monthly tally · {title}</div><div className="sub">Switch Workspace above to view Bringing Industry Solution, Bethesher, Whole, or Personal / Other.</div></div><button className="btn primary" onClick={()=>downloadCsv(`monthly-tally-${workspace}.csv`,summary.monthly||[])}>Export CSV</button></div><MonthlyTable rows={summary.monthly||[]}/></section>}
 
    {loading&&<div className="loading">Loading…</div>}{error&&!modal&&<div className="error">{error}</div>}
   </main>
@@ -167,7 +175,8 @@ export default function Hub(){
 }
 
 function Card({label,value,cls}:{label:string;value:number;cls?:string}){return <div className="card"><div className="label">{label}</div><div className={'value '+(cls||'')}>{money(value)}</div></div>}
-function Table({rows,onEdit,onDelete}:{rows:Tx[];onEdit:(x:Tx)=>void;onDelete:(id:string)=>void}){return <div className="table-wrap"><table className="table"><thead><tr><th>Date</th><th>Type</th><th>Customer / Supplier</th><th>Category</th><th>Account</th><th>Reference</th><th>VAT</th><th className="right">Amount</th><th></th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{x.transaction_date}</td><td><span className={'pill '+x.type}>{x.type}</span></td><td>{x.counterparty||'—'}</td><td>{x.categories?.name||'—'}</td><td>{x.accounts?.name||'—'}</td><td>{x.reference_number||'—'}</td><td>{x.tax_type==='vat'?money(x.tax_amount):'—'}</td><td className="right">{money(x.amount)}</td><td><button className="btn small" onClick={()=>onEdit(x)}>Edit</button> <button className="btn small danger" onClick={()=>onDelete(x.id)}>Delete</button></td></tr>)}</tbody></table></div>}
+function Table({rows,onEdit,onDelete}:{rows:Tx[];onEdit:(x:Tx)=>void;onDelete:(id:string)=>void}){return <div className="table-wrap"><table className="table"><thead><tr><th>Date</th><th>Type</th><th>Customer / Supplier</th><th>Category</th><th>Account</th><th>Company</th><th>Reference</th><th>VAT</th><th className="right">Amount</th><th></th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{x.transaction_date}</td><td><span className={'pill '+x.type}>{x.type}</span></td><td>{x.counterparty||'—'}</td><td>{x.categories?.name||'—'}</td><td>{x.accounts?.name||'—'}</td><td>{busName(x.business_unit_id)}</td><td>{x.reference_number||'—'}</td><td>{x.tax_type==='vat'?money(x.tax_amount):'—'}</td><td className="right">{money(x.amount)}</td><td><button className="btn small" onClick={()=>onEdit(x)}>Edit</button> <button className="btn small danger" onClick={()=>onDelete(x.id)}>Delete</button></td></tr>)}</tbody></table></div>}
+function busName(id:string|null){return id?'Assigned company':'—'}
 function MonthlyBars({rows}:{rows:any[]}){const max=Math.max(1,...rows.flatMap(r=>[Number(r.income||0),Number(r.expenses||0)]));return <div className="bars">{rows.map(r=><div className="bar-row" key={r.month}><div className="bar-label">{r.month}</div><div className="bar-track"><div className="bar income-bar" style={{width:`${Number(r.income||0)/max*100}%`}}></div><div className="bar expense-bar" style={{width:`${Number(r.expenses||0)/max*100}%`}}></div></div><div className="bar-values">{money(r.income)} / {money(r.expenses)}</div></div>)}</div>}
 function MonthlyTable({rows}:{rows:any[]}){return <div className="table-wrap"><table className="table"><thead><tr><th>Month</th><th>Transactions</th><th>Income</th><th>Expenses</th><th>Net</th><th>Output VAT</th><th>Input VAT</th></tr></thead><tbody>{rows.map(m=><tr key={m.month}><td>{m.month}</td><td>{m.count}</td><td>{money(m.income)}</td><td>{money(m.expenses)}</td><td>{money(m.income-m.expenses)}</td><td>{money(m.output_vat)}</td><td>{money(m.input_vat)}</td></tr>)}</tbody></table></div>}
 function Field({label,children,full}:{label:string;children:React.ReactNode;full?:boolean}){return <div className={'field '+(full?'full':'')}><label>{label}</label>{children}</div>}
