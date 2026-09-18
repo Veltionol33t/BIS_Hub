@@ -11,3 +11,8 @@ Configure these in Vercel for Production:
 - `ADMIN_HUB_PASSWORD` — shared internal Admin Hub login password
 
 Never commit secret values to GitHub.
+
+
+## Vercel Git deployment
+
+Production is deployed from the `main` branch through Vercel's Git integration.
