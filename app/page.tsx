@@ -85,8 +85,8 @@ export default function Hub(){
    <div className="side-footer">Internal company tool<br/>Password protected</div>
   </aside>
   <main className="main">
-   <div className="top">
-    <div><div className="title">{page==='dashboard'?title:nav.find(x=>x[0]===page)?.[1]}</div><div className="sub">Company finance, transactions and VAT overview</div></div>
+   <div className="top"><div className="mobile-brand">BIS <span>ADMIN HUB</span></div>
+    <div><div className="eyebrow">Finance workspace</div><div className="title">{page==='dashboard'?title:nav.find(x=>x[0]===page)?.[1]}</div><div className="sub">A clear view of company money, tax and activity.</div></div>
     <div className="top-actions">
      <span className="workspace-label">Workspace</span>
      <select className="workspace-select" value={workspace} onChange={e=>setWorkspace(e.target.value)}>
@@ -94,12 +94,12 @@ export default function Hub(){
       {companyButtons.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
       <option value="personal">Personal / Other</option>
      </select>
-     <button className="btn primary" onClick={()=>openTx()}>+ New transaction</button>
+     <button className="btn primary newtx" onClick={()=>openTx()}>+ New transaction</button>
     </div>
    </div>
 
    {page==='dashboard'&&<>
-    <div className="cards"><Card label="Income" value={summary.income} cls="positive"/><Card label="Expenses" value={summary.expenses} cls="negative"/><Card label="Net balance" value={summary.net}/><Card label="Net VAT" value={summary.net_vat}/><Card label="Transactions" value={summary.count}/></div>
+    <div className="section-kicker">Financial overview</div><div className="cards"><Card label="Income" value={summary.income} cls="positive"/><Card label="Expenses" value={summary.expenses} cls="negative"/><Card label="Net balance" value={summary.net}/><Card label="Net VAT" value={summary.net_vat}/><Card label="Transactions" value={summary.count}/></div>
     <section className="panel">
      <div className="panel-head"><div><div className="panel-title">Recent transactions</div><div className="sub">Latest activity for {title}</div></div><button className="btn" onClick={()=>setPage('transactions')}>View all</button></div>
      <Table rows={tx.slice(0,10)} onEdit={openTx} onDelete={deleteTx}/>{!tx.length&&<div className="empty">No transactions yet.</div>}
