@@ -19,7 +19,7 @@ export default function Hub(){
  const [form,setForm]=useState<any>(empty),[metaForm,setMetaForm]=useState({name:'',type:'expense',description:'',business_unit_id:'',is_personal:false,opening_balance:'0',currency:'PHP'});
  const [error,setError]=useState(''),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true);
 
- const workspaceQuery=workspace==='whole'?'':workspace==='personal'?'&personal=true':`&business_unit_id=${workspace}`;
+ const workspaceQuery=workspace==='personal'?'&personal=true':workspace==='whole'?'&personal=false':`&business_unit_id=${workspace}&personal=false`;
  const summaryQuery=workspace==='personal'?'personal=true':`business_unit_id=${workspace}`;
  const load=async()=>{
    setLoading(true);
